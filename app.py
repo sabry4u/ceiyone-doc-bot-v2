@@ -4,6 +4,8 @@ from PIL import Image
 from openai import OpenAI
 import time
 import io
+from datetime import datetime
+import uuid
 
 # --- Config ---
 st.set_page_config(page_title="Ceiyone Vendor Risk Analyzer", layout="wide")
@@ -114,7 +116,11 @@ Risk Summary:
                     for content in msg.content:
                         if hasattr(content, "text"):
                             response = content.text.value
-                            st.session_state.chat_history.append({"role": "assistant", "content": response})
+                            st.session_state.chat_history.append({
+                                "role": "assistant",
+                                "content": response,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            })
                             st.chat_message("assistant").markdown(response)
 
                             if "Risk Severity: High" in response:
@@ -194,7 +200,11 @@ Audit Report Findings:
                     for content in msg.content:
                         if hasattr(content, "text"):
                             response = content.text.value
-                            st.session_state.chat_history.append({"role": "assistant", "content": response})
+                            st.session_state.chat_history.append({
+                                "role": "assistant",
+                                "content": response,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            })
                             st.chat_message("assistant").markdown(response)
             else:
                 st.warning("⚠️ Assistant returned no response.")
@@ -208,13 +218,40 @@ elif st.session_state.selected_menu == "chat":
 
     if st.session_state.chat_history:
         for chat in reversed(st.session_state.chat_history):
-            with st.chat_message(chat['role']):
-                st.markdown(chat['content'])
+            timestamp = chat.get("timestamp", "Unknown")
+            content = chat["content"].strip()
+            role = chat["role"].capitalize()
 
+            # --- Detect Document Type ---
+            if "Audit Report Findings" in content:
+                doc_type = "SOC 2 Type 2"
+            elif "Form Status" in content or "Risk Severity" in content:
+                doc_type = "Vendor Security Review Form"
+            else:
+                doc_type = "Analysis"
+
+            # --- Extract Risk Severity or Fallback to Snippet ---
+            risk_line = ""
+            for line in content.splitlines():
+                if line.lower().startswith("risk severity:"):
+                    risk_line = line.strip()
+                    break
+
+            if not risk_line:
+                summary_preview = content.replace("\n", " ").strip()
+                risk_line = summary_preview[:100] + ("..." if len(summary_preview) > 100 else "")
+
+            # --- Compose Summary Header ---
+            summary_line = f"{doc_type} — {risk_line} — {timestamp}"
+
+            # --- Expander UI ---
+            with st.expander(summary_line, expanded=False):
+                st.markdown(content)
+
+        # --- Download Chat History Button ---
         chat_export = io.StringIO()
         for chat in st.session_state.chat_history:
-            chat_role = chat["role"].capitalize()
-            chat_export.write(f"{chat_role}: {chat['content']}\n\n")
+            chat_export.write(f"{chat.get('timestamp', 'Unknown')} | {chat['role'].capitalize()}: {chat['content']}\n\n")
 
         st.download_button(
             label="📥 Download Chat History",
