@@ -86,6 +86,7 @@ with st.sidebar:
 
     render_card_option("📄 Upload Vendor Form", "upload")
     render_card_option("📄 Upload SOC 2 Document", "soc2")
+    render_card_option("🌐 Search Internet", "soc2")
     render_card_option("💬 Chat History", "chat")
 
     st.markdown("---")
